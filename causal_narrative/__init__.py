@@ -21,7 +21,7 @@ Usage:
     clusterer.export_results('./output')
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 # Core data models
 from causal_narrative.models import (
