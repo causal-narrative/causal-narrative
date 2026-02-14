@@ -1,6 +1,10 @@
-# Causal Narrative
+# 'Causal Narrative'
 
 A Python package for extracting and analyzing causal narratives from text using semantic role labeling and event clustering.
+
+This package accompanies our paper:
+
+**Mapping the Causal Narrative in Political Communication Using Large Language Models**
 
 ## What can this package do?
 
