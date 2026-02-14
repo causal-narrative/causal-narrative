@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "causalis-nlp", email = "causalisnlp@gmail.com"}
+    {name = "causal-narrative-team", email = "causalisnlp@gmail.com"}
 ]
 keywords = ["NLP", "causality", "narrative", "semantic role labeling", "event clustering"]
 classifiers = [
@@ -36,7 +36,6 @@ dependencies = [
     "seaborn>=0.11",
     "sentence-transformers>=2.2.2",
     "hdbscan>=0.8.28",
-    "pdc-dp-means>=1.0",
     "loguru>=0.6",
     "tqdm>=4.62",
     "pydantic>=1.9,<3.0",
@@ -79,10 +78,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/causalis-nlp/causal-narrative"
-Documentation = "https://github.com/causalis-nlp/causal-narrative"
-Repository = "https://github.com/causalis-nlp/causal-narrative"
-Changelog = "https://github.com/causalis-nlp/causal-narrative/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/causal-narrative/causal-narrative"
+Documentation = "https://github.com/causal-narrative/causal-narrative"
+Repository = "https://github.com/causal-narrative/causal-narrative"
+Changelog = "https://github.com/causal-narrative/causal-narrative/blob/main/CHANGELOG.md"
 
 [tool.setuptools.dynamic]
 version = {attr = "causal_narrative.__version__"}
