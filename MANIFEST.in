@@ -1,0 +1,19 @@
+include README.md
+include LICENSE
+include requirements.txt
+include CHANGELOG.md
+recursive-include causal_narrative *.py
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
+exclude .gitignore
+exclude Makefile
+exclude setup.cfg
+prune notebook
+prune notebooks
+prune output
+prune model
+prune models
+prune data
+prune tests
+prune docs
