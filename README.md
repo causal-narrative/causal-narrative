@@ -1,4 +1,4 @@
-# 'Causal Narrative'
+# `Causal Narrative`
 
 A Python package for extracting and analyzing causal narratives from text using semantic role labeling and event clustering.
 
