@@ -224,7 +224,7 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
-### Version 0.1.0 (2026-02-13)
+### Version 0.1.0 (2026-02-14)
 
 - Initial release
 - Causal detection with pattern, classifier, and LLM approaches
