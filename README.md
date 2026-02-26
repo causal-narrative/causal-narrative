@@ -1,4 +1,4 @@
-# `Causal Narrative`
+# `Causal-Narrative`
 
 A Python package for extracting and analyzing causal narratives from text using semantic role labeling and event clustering.
 
@@ -214,9 +214,9 @@ If you use this package in your research, please cite:
 
 ```bibtex
 @software{causal_narrative,
-  title = {Causal Narrative: A Python Package for Causal Event Extraction and Analysis},
+  title = {Mapping the Causal Narratives in Political Communication Using Large Language Models},
   year = {2026},
-  url = {https://github.com/causalis-nlp/causal-narrative}
+  url = {https://github.com/causal-narrative/causal-narrative}
 }
 ```
 
