@@ -143,6 +143,12 @@ twine check dist/*
 twine upload dist/*
 ```
 
+## 🐛 已修复的问题
+
+- **Import Error**: 修复了 `detect_language` 和相关函数从错误模块导入的问题
+  - 原因：这些函数在 `embedding.py` 中，但错误地从 `event_clustering` 导入
+  - 修复：在 `__init__.py` 中正确地从 `embedding` 模块导入
+
 ## 🧪 测试新功能
 
 ### 测试中文 SRL

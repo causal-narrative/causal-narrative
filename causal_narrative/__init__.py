@@ -85,12 +85,6 @@ from causal_narrative.event_clustering import (
     parse_srl_json,
     is_valid_srl,
     make_svo_text,
-    # Embedding
-    load_embedder,
-    detect_language,
-    get_default_model_for_language,
-    generate_role_based_embeddings,
-    generate_phrase_embeddings,
     # PCA
     role_based_pca,
     phrase_pca,
@@ -102,6 +96,15 @@ from causal_narrative.event_clustering import (
     generate_cluster_names_from_srl,
     generate_cluster_names_from_texts,
     get_cluster_stats,
+)
+
+# Embedding
+from causal_narrative.embedding import (
+    load_embedder,
+    detect_language,
+    get_default_model_for_language,
+    generate_role_based_embeddings,
+    generate_phrase_embeddings,
 )
 
 # Visualization
