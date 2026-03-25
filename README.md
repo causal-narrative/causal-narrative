@@ -142,20 +142,28 @@ python -m spacy download en_core_web_sm
 
 ### Option 3: Chinese Language Support
 
-**For Chinese text analysis, install HanLP:**
+**For Chinese text analysis, install jieba and optionally HanLP:**
 
 ```bash
-# Install HanLP for Chinese SRL
-pip install hanlp
+# Basic Chinese support (recommended - stable)
+pip install 'causal-narrative[chinese]'
 
 # Test Chinese support
-python -c "from causal_narrative import get_srl, is_hanlp_available; print('HanLP available:', is_hanlp_available())"
+python -c "import jieba; print('Jieba available:', True)"
 ```
 
 **Chinese Features:**
-- ✅ HanLP-based SRL for Chinese text
+- ✅ Jieba-based SRL for Chinese text (lightweight, stable)
 - ✅ Multilingual BERT embedding models (automatic language detection)
 - ✅ Same clustering and visualization as English
+
+**Note on HanLP:**
+HanLP provides more sophisticated Chinese SRL but may have compatibility issues with newer transformers versions. If you encounter `AttributeError: BertTokenizer has no attribute encode_plus`, the jieba-based fallback will be used automatically.
+
+To resolve HanLP compatibility issues:
+```bash
+pip install 'transformers<4.31'
+```
 
 **Example Usage (Chinese):**
 ```python

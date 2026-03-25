@@ -90,6 +90,18 @@ class HanLPSRL:
             self.batch_size = batch_size
             logger.info(f"✓ Loaded HanLP model: {model_name}")
             
+            # Test if SRL works (detect version issues)
+            try:
+                test_result = self.nlp("测试", tasks='srl')
+                logger.debug("HanLP SRL test successful")
+            except (AttributeError, TypeError) as e:
+                logger.warning(
+                    f"HanLP SRL may have compatibility issues: {e}\n"
+                    "This might be due to transformers version incompatibility.\n"
+                    "Try: pip install transformers==4.30.0\n"
+                    "Or use a different SRL method for now."
+                )
+            
         except Exception as e:
             logger.error(f"Failed to load HanLP model: {e}")
             raise RuntimeError(
@@ -97,7 +109,169 @@ class HanLPSRL:
                 f"Error: {str(e)}"
             ) from e
     
-    def _extract_srl_from_hanlp(self, text: str) -> Dict[str, Any]:
+class HanLPSRL:
+    """SRL using HanLP for Chinese text.
+    
+    Extracts semantic roles (ARG0, PRED/V, ARG1) using HanLP's multitask learning model.
+    Output format is compatible with AllenNLP for consistent downstream processing.
+    
+    Note: HanLP requires compatible transformers version (< 4.31).
+    If you encounter AttributeError with encode_plus, install: pip install 'transformers<4.31'
+    
+    Attributes:
+        nlp: HanLP pipeline
+        model_name: Name of loaded model
+        batch_size: Default batch size for processing
+        use_jieba_fallback: Whether to use jieba fallback if HanLP fails
+    """
+    
+    def __init__(
+        self, 
+        model_name: str = "CLOSE_TOK_POS_NER_SRL_DEP_SDP_CON_ELECTRA_BASE_ZH", 
+        batch_size: int = 32,
+        use_jieba_fallback: bool = True
+    ):
+        """Initialize HanLP SRL.
+        
+        Args:
+            model_name: HanLP model to load (default: ELECTRA_BASE_ZH)
+            batch_size: Default batch size for processing multiple texts
+            use_jieba_fallback: Use jieba-based fallback if HanLP fails
+            
+        Raises:
+            ImportError: If HanLP is not installed
+            RuntimeError: If model cannot be loaded
+        """
+        if not HANLP_AVAILABLE:
+            raise ImportError(
+                "HanLP is not installed. "
+                "Install it with: pip install hanlp\n"
+                "Note: HanLP is required for Chinese SRL."
+            )
+        
+        self.use_jieba_fallback = use_jieba_fallback
+        self.hanlp_working = False
+        
+        logger.debug(f"Initializing HanLP SRL with model: {model_name}")
+        
+        try:
+            # Load HanLP model
+            if hasattr(hanlp.pretrained.mtl, model_name):
+                model_path = getattr(hanlp.pretrained.mtl, model_name)
+            else:
+                model_path = model_name
+            
+            logger.info(f"Loading HanLP model... This may take a while on first run.")
+            self.nlp = hanlp.load(model_path)
+            self.model_name = model_name
+            self.batch_size = batch_size
+            logger.info(f"✓ Loaded HanLP model: {model_name}")
+            
+            # Test if SRL works (detect version issues)
+            try:
+                test_result = self.nlp("测试", tasks='srl')
+                self.hanlp_working = True
+                logger.debug("HanLP SRL test successful")
+            except (AttributeError, TypeError) as e:
+                logger.warning(
+                    f"HanLP SRL has compatibility issues: {e}\n"
+                    "This is likely due to transformers version incompatibility.\n"
+                    "Solutions:\n"
+                    "  1. Install: pip install 'transformers<4.31'\n"
+                    "  2. Or upgrade: pip install hanlp --upgrade\n"
+                )
+                if use_jieba_fallback:
+                    logger.info("Will use jieba-based fallback for Chinese SRL")
+                    self._init_jieba_fallback()
+            
+        except Exception as e:
+            logger.error(f"Failed to load HanLP model: {e}")
+            if use_jieba_fallback:
+                logger.info("Will use jieba-based fallback for Chinese SRL")
+                self._init_jieba_fallback()
+            else:
+                raise RuntimeError(
+                    f"Failed to load HanLP model '{model_name}'. "
+                    f"Error: {str(e)}"
+                ) from e
+    
+    def _init_jieba_fallback(self):
+        """Initialize jieba-based fallback for Chinese SRL."""
+        try:
+            import jieba
+            import jieba.posseg as pseg
+            self.jieba = jieba
+            self.pseg = pseg
+            logger.info("✓ Initialized jieba fallback for Chinese SRL")
+        except ImportError:
+            logger.warning("jieba not available. Install with: pip install jieba")
+            self.jieba = None
+            self.pseg = None
+    
+    def _extract_srl_jieba_fallback(self, text: str) -> Dict[str, Any]:
+        """Fallback SRL using jieba for Chinese when HanLP fails.
+        
+        Args:
+            text: Input Chinese text
+            
+        Returns:
+            SRL dictionary compatible with AllenNLP format
+        """
+        if not self.pseg:
+            return {"words": list(text), "verbs": []}
+        
+        try:
+            # 使用 jieba 进行词性标注
+            words_pos = self.pseg.cut(text)
+            words = []
+            verb = None
+            verb_idx = -1
+            
+            for idx, (word, pos) in enumerate(words_pos):
+                words.append(word)
+                # 寻找动词 (v 开头的词性标签)
+                if pos.startswith('v') and not verb:
+                    verb = word
+                    verb_idx = idx
+            
+            if not verb:
+                return {"words": words, "verbs": []}
+            
+            # 简单的 SRL: 动词前是 ARG0，动词后是 ARG1
+            arg0_words = words[:verb_idx] if verb_idx > 0 else []
+            arg1_words = words[verb_idx+1:] if verb_idx < len(words)-1 else []
+            
+            arg0 = ''.join(arg0_words) if arg0_words else None
+            arg1 = ''.join(arg1_words) if arg1_words else None
+            
+            # 构建描述
+            description_parts = []
+            if arg0:
+                description_parts.append(f"[ARG0: {arg0}]")
+            description_parts.append(f"[V: {verb}]")
+            if arg1:
+                description_parts.append(f"[ARG1: {arg1}]")
+            description = " ".join(description_parts)
+            
+            # 构建 tags
+            tags = ["O"] * len(words)
+            if verb_idx >= 0 and verb_idx < len(tags):
+                tags[verb_idx] = "B-V"
+            
+            verb_dict = {
+                "verb": verb,
+                "description": description,
+                "tags": tags,
+            }
+            
+            return {
+                "words": words,
+                "verbs": [verb_dict],
+            }
+            
+        except Exception as e:
+            logger.debug(f"Jieba SRL failed: {e}")
+            return {"words": list(text), "verbs": []}
         """Extract SRL from HanLP result and convert to AllenNLP-compatible format.
         
         Args:
@@ -110,15 +284,18 @@ class HanLPSRL:
             return {"words": [], "verbs": []}
         
         try:
-            # Run HanLP
-            result = self.nlp(str(text).strip(), tasks=['srl'])
+            # Run HanLP with SRL task
+            # Note: Use tasks='srl' (string) not tasks=['srl'] (list)
+            result = self.nlp(str(text).strip(), tasks='srl')
             srl_result = result.get('srl', [])
             
             if not srl_result:
+                logger.debug(f"No SRL result for text: {text[:30]}...")
                 return {"words": list(text), "verbs": []}
             
-            # Extract words (tokenize Chinese)
-            words = list(text)
+            # Get tokenized words from HanLP result
+            # HanLP returns tokens, not characters
+            words = result.get('tok/fine', None) or result.get('tok', None) or list(text)
             
             # Process each predicate frame
             verbs = []
@@ -131,6 +308,7 @@ class HanLPSRL:
                 arg1 = None
                 
                 # Extract roles from HanLP format
+                # HanLP SRL format: [[word, role], [word, role], ...]
                 for item in pred_args:
                     if len(item) >= 2:
                         arg_text = item[0]
@@ -155,10 +333,18 @@ class HanLPSRL:
                     
                     # Simplified tags (mark verb position)
                     tags = ["O"] * len(words)
-                    if pred in text:
-                        verb_start = text.index(pred)
-                        if verb_start < len(tags):
-                            tags[verb_start] = "B-V"
+                    # Try to find verb in words
+                    try:
+                        if isinstance(words, list) and pred in text:
+                            verb_idx = 0
+                            for idx, word in enumerate(words):
+                                if word == pred or pred.startswith(word):
+                                    verb_idx = idx
+                                    break
+                            if verb_idx < len(tags):
+                                tags[verb_idx] = "B-V"
+                    except:
+                        pass
                     
                     verb_dict = {
                         "verb": pred,
@@ -168,10 +354,16 @@ class HanLPSRL:
                     verbs.append(verb_dict)
             
             return {
-                "words": words,
+                "words": words if isinstance(words, list) else list(text),
                 "verbs": verbs,
             }
             
+        except AttributeError as e:
+            logger.warning(
+                f"HanLP AttributeError (likely version issue): {e}\n"
+                "Try: pip install 'transformers<4.31' or pip install hanlp --upgrade"
+            )
+            return {"words": list(text), "verbs": []}
         except Exception as e:
             logger.debug(f"HanLP SRL extraction failed for text: {text[:50]}... Error: {e}")
             return {"words": list(text), "verbs": []}

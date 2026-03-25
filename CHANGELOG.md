@@ -12,6 +12,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-02-13
+
+### Fixed
+- HanLP compatibility issues with transformers >= 4.31
+- Added jieba-based fallback SRL for Chinese text (more stable)
+- Updated `HanLPSRL` class to automatically fall back to jieba when HanLP encounters version conflicts
+
+### Changed
+- Chinese tutorial notebook now uses jieba for SRL (avoiding HanLP compatibility issues)
+- Added `jieba>=0.42` to Chinese language dependencies
+- Updated README with clearer Chinese installation instructions and troubleshooting
+
 ## [0.2.0] - 2026-02-14
 
 ### Added
