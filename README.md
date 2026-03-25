@@ -272,6 +272,7 @@ labels = clusterer.fit_predict(embeddings)
 Please see our hands-on tutorials in the `notebook/` directory:
 
 - **`tutorial_minimal.ipynb`**: A minimal runnable tutorial (~2 mins). Designed for quick execution and understanding of the core pipeline.
+- **`tutorial_minimal_zh.ipynb`**: Chinese version of the minimal tutorial (中文版最小实例教程)
 - **`tutorial_trump.ipynb`**: Complete pipeline for the Trump Tweet Archive
 
 
