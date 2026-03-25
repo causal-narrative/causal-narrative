@@ -21,7 +21,7 @@ Usage:
     clusterer.export_results('./output')
 """
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 # Core data models
 from causal_narrative.models import (
@@ -65,8 +65,10 @@ from causal_narrative.datasets import (
 from causal_narrative.semantic_role_labeling import (
     SpacySRL,
     AllenNLPSRL,
+    HanLPSRL,
     get_srl,
     is_allennlp_available,
+    is_hanlp_available,
     extract_roles,
     has_verb,
     is_event_srl,
@@ -85,6 +87,8 @@ from causal_narrative.event_clustering import (
     make_svo_text,
     # Embedding
     load_embedder,
+    detect_language,
+    get_default_model_for_language,
     generate_role_based_embeddings,
     generate_phrase_embeddings,
     # PCA
@@ -127,8 +131,10 @@ __all__ = [
     # Semantic Role Labeling
     "SpacySRL",
     "AllenNLPSRL",
+    "HanLPSRL",
     "get_srl",
     "is_allennlp_available",
+    "is_hanlp_available",
     "extract_roles",
     "has_verb",
     "process_to_dataframe",
@@ -155,6 +161,8 @@ __all__ = [
     "make_svo_text",
     # Embedding
     "load_embedder",
+    "detect_language",
+    "get_default_model_for_language",
     "generate_role_based_embeddings",
     "generate_phrase_embeddings",
     # PCA

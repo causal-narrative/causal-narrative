@@ -10,6 +10,48 @@ from tqdm import tqdm
 
 # Default model name for embeddings
 DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+DEFAULT_CHINESE_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # Good for Chinese
+
+# Alternative Chinese models (users can choose):
+# - "shibing624/text2vec-base-chinese" (specifically trained on Chinese)
+# - "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2" (multilingual, includes Chinese)
+# - "DMetaSoul/Dmeta-embedding-zh" (Chinese-specific)
+
+
+def detect_language(text: str) -> str:
+    """Detect if text is Chinese or English.
+    
+    Args:
+        text: Input text
+        
+    Returns:
+        'zh' for Chinese, 'en' for English
+    """
+    if not text:
+        return 'en'
+    
+    # Count Chinese characters
+    chinese_chars = sum(1 for char in text if '\u4e00' <= char <= '\u9fff')
+    total_chars = len(text.strip())
+    
+    # If more than 30% are Chinese characters, consider it Chinese
+    if total_chars > 0 and chinese_chars / total_chars > 0.3:
+        return 'zh'
+    return 'en'
+
+
+def get_default_model_for_language(language: str = 'en') -> str:
+    """Get default embedding model for a language.
+    
+    Args:
+        language: Language code ('en' or 'zh')
+        
+    Returns:
+        Model name for sentence-transformers
+    """
+    if language == 'zh':
+        return DEFAULT_CHINESE_MODEL_NAME
+    return DEFAULT_MODEL_NAME
 
 
 class SentenceEmbedder:
@@ -277,11 +319,14 @@ class SentenceEmbedder:
 # Helper Functions for Loading Embedders
 # =============================================================================
 
-def load_embedder(model_name: str = DEFAULT_MODEL_NAME):
+def load_embedder(model_name: str = DEFAULT_MODEL_NAME, language: Optional[str] = None):
     """Load Sentence Transformer model.
     
     Args:
-        model_name: Model name, e.g., 'all-MiniLM-L6-v2'
+        model_name: Model name, e.g., 'all-MiniLM-L6-v2'. If not specified, will use
+                   default model based on language parameter.
+        language: Language code ('en' or 'zh'). If specified and model_name is default,
+                 will automatically select appropriate model for the language.
     
     Returns:
         SentenceTransformer: Loaded model instance
@@ -289,11 +334,22 @@ def load_embedder(model_name: str = DEFAULT_MODEL_NAME):
     Raises:
         ImportError: If sentence_transformers is not installed
     
-    Example:
+    Examples:
+        >>> # English (default)
+        >>> embedder = load_embedder()
+        
+        >>> # Chinese (auto-select Chinese model)
+        >>> embedder = load_embedder(language='zh')
+        
+        >>> # Specific model
         >>> embedder = load_embedder('all-MiniLM-L6-v2')
-        >>> embeddings = embedder.encode(['Hello world'])
     """
     from sentence_transformers import SentenceTransformer
+    
+    # Auto-select model based on language if using default
+    if model_name == DEFAULT_MODEL_NAME and language == 'zh':
+        model_name = DEFAULT_CHINESE_MODEL_NAME
+        logger.info(f"Auto-selected Chinese embedding model: {model_name}")
     
     logger.info(f"Loading embedding model: {model_name}")
     model = SentenceTransformer(model_name)

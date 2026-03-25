@@ -32,6 +32,230 @@ except ImportError:
     torch = None
     Predictor = None
 
+# Check HanLP availability (for Chinese SRL)
+try:
+    import hanlp
+    HANLP_AVAILABLE = True
+except ImportError:
+    HANLP_AVAILABLE = False
+    hanlp = None
+
+
+# =============================================================================
+# HanLP SRL (for Chinese)
+# =============================================================================
+
+class HanLPSRL:
+    """SRL using HanLP for Chinese text.
+    
+    Extracts semantic roles (ARG0, PRED/V, ARG1) using HanLP's multitask learning model.
+    Output format is compatible with AllenNLP for consistent downstream processing.
+    
+    Attributes:
+        nlp: HanLP pipeline
+        model_name: Name of loaded model
+        batch_size: Default batch size for processing
+    """
+    
+    def __init__(self, model_name: str = "CLOSE_TOK_POS_NER_SRL_DEP_SDP_CON_ELECTRA_BASE_ZH", batch_size: int = 32):
+        """Initialize HanLP SRL.
+        
+        Args:
+            model_name: HanLP model to load (default: ELECTRA_BASE_ZH)
+            batch_size: Default batch size for processing multiple texts
+            
+        Raises:
+            ImportError: If HanLP is not installed
+            RuntimeError: If model cannot be loaded
+        """
+        if not HANLP_AVAILABLE:
+            raise ImportError(
+                "HanLP is not installed. "
+                "Install it with: pip install hanlp\n"
+                "Note: HanLP is required for Chinese SRL."
+            )
+        
+        logger.debug(f"Initializing HanLP SRL with model: {model_name}")
+        
+        try:
+            # Load HanLP model
+            if hasattr(hanlp.pretrained.mtl, model_name):
+                model_path = getattr(hanlp.pretrained.mtl, model_name)
+            else:
+                model_path = model_name
+            
+            logger.info(f"Loading HanLP model... This may take a while on first run.")
+            self.nlp = hanlp.load(model_path)
+            self.model_name = model_name
+            self.batch_size = batch_size
+            logger.info(f"✓ Loaded HanLP model: {model_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load HanLP model: {e}")
+            raise RuntimeError(
+                f"Failed to load HanLP model '{model_name}'. "
+                f"Error: {str(e)}"
+            ) from e
+    
+    def _extract_srl_from_hanlp(self, text: str) -> Dict[str, Any]:
+        """Extract SRL from HanLP result and convert to AllenNLP-compatible format.
+        
+        Args:
+            text: Input Chinese text
+            
+        Returns:
+            SRL dictionary compatible with AllenNLP format
+        """
+        if not text or not isinstance(text, str) or len(str(text).strip()) < 2:
+            return {"words": [], "verbs": []}
+        
+        try:
+            # Run HanLP
+            result = self.nlp(str(text).strip(), tasks=['srl'])
+            srl_result = result.get('srl', [])
+            
+            if not srl_result:
+                return {"words": list(text), "verbs": []}
+            
+            # Extract words (tokenize Chinese)
+            words = list(text)
+            
+            # Process each predicate frame
+            verbs = []
+            for pred_args in srl_result:
+                if not pred_args:
+                    continue
+                
+                pred = None
+                arg0 = None
+                arg1 = None
+                
+                # Extract roles from HanLP format
+                for item in pred_args:
+                    if len(item) >= 2:
+                        arg_text = item[0]
+                        role = item[1]
+                        
+                        if role == 'PRED':
+                            pred = arg_text
+                        elif role == 'ARG0':
+                            arg0 = arg_text
+                        elif role == 'ARG1':
+                            arg1 = arg_text
+                
+                # Build description string (AllenNLP format)
+                if pred:
+                    description_parts = []
+                    if arg0:
+                        description_parts.append(f"[ARG0: {arg0}]")
+                    description_parts.append(f"[V: {pred}]")
+                    if arg1:
+                        description_parts.append(f"[ARG1: {arg1}]")
+                    description = " ".join(description_parts)
+                    
+                    # Simplified tags (mark verb position)
+                    tags = ["O"] * len(words)
+                    if pred in text:
+                        verb_start = text.index(pred)
+                        if verb_start < len(tags):
+                            tags[verb_start] = "B-V"
+                    
+                    verb_dict = {
+                        "verb": pred,
+                        "description": description,
+                        "tags": tags,
+                    }
+                    verbs.append(verb_dict)
+            
+            return {
+                "words": words,
+                "verbs": verbs,
+            }
+            
+        except Exception as e:
+            logger.debug(f"HanLP SRL extraction failed for text: {text[:50]}... Error: {e}")
+            return {"words": list(text), "verbs": []}
+    
+    def _process_single(self, text: str) -> Dict[str, Any]:
+        """Process a single text with SRL.
+        
+        Args:
+            text: Input Chinese text
+            
+        Returns:
+            SRL dictionary with 'words' and 'verbs' keys
+        """
+        logger.debug(f"Processing HanLP SRL for text: {text[:50]}...")
+        return self._extract_srl_from_hanlp(text)
+    
+    def process(
+        self,
+        texts: Union[str, List[str]],
+        batch_size: Optional[int] = None,
+        show_progress: bool = False,
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """Process text(s) with SRL.
+        
+        Automatically handles single text or multiple texts.
+        
+        Args:
+            texts: Single text string or list of texts
+            batch_size: Batch size for processing (uses default if None)
+            show_progress: Show progress bar for batch processing
+            
+        Returns:
+            Single SRL dict if input is str, list of dicts if input is list
+            
+        Examples:
+            >>> srl = HanLPSRL()
+            >>> result = srl.process("政府提高了利率。")
+            >>> results = srl.process(["句子1", "句子2"], show_progress=True)
+        """
+        # Single text
+        if isinstance(texts, str):
+            return self._process_single(texts)
+        
+        # Multiple texts
+        if not texts:
+            return []
+        
+        logger.info(f"Starting batch SRL processing for {len(texts)} texts using HanLP")
+        results = []
+        
+        # Create iterator with optional progress bar
+        texts_iterator = texts
+        if show_progress:
+            texts_iterator = tqdm(
+                texts,
+                desc="Processing SRL (HanLP)",
+                unit="texts"
+            )
+        
+        for text in texts_iterator:
+            result = self._process_single(text)
+            results.append(result)
+        
+        verb_count = sum(1 for r in results if r.get('verbs'))
+        logger.info(f"Completed batch SRL processing: {verb_count}/{len(results)} texts with verbs found")
+        return results
+    
+    def extract_roles(
+        self,
+        srl_result: Union[Dict[str, Any], List[Dict[str, Any]]]
+    ) -> Union[Dict[str, Optional[str]], List[Dict[str, Optional[str]]]]:
+        """Extract ARG0, V, ARG1 from SRL result(s).
+        
+        Args:
+            srl_result: Single SRL dict or list of SRL dicts
+            
+        Returns:
+            Single roles dict or list of roles dicts with 'ARG0', 'V', 'ARG1' keys
+        """
+        if isinstance(srl_result, dict):
+            return extract_roles(srl_result)
+        else:
+            return [extract_roles(r) for r in srl_result]
+
 
 # =============================================================================
 # spaCy SRL
@@ -576,11 +800,11 @@ class AllenNLPSRL:
 # Factory function
 # =============================================================================
 
-def get_srl(method: str = "spacy", **kwargs) -> Union[SpacySRL, AllenNLPSRL]:
+def get_srl(method: str = "spacy", **kwargs) -> Union[SpacySRL, AllenNLPSRL, 'HanLPSRL']:
     """Factory function to get SRL processor.
     
     Args:
-        method: Method name ('spacy' or 'allennlp')
+        method: Method name ('spacy', 'allennlp', or 'hanlp')
         **kwargs: Additional arguments for processor initialization
         
     Returns:
@@ -588,16 +812,20 @@ def get_srl(method: str = "spacy", **kwargs) -> Union[SpacySRL, AllenNLPSRL]:
         
     Raises:
         ValueError: If method is not supported
-        ImportError: If AllenNLP is requested but not available
+        ImportError: If AllenNLP/HanLP is requested but not available
         
     Examples:
-        >>> # Use spaCy (default)
+        >>> # Use spaCy (default, English)
         >>> srl = get_srl('spacy')
         >>> result = srl.process("The dog chased the cat.")
         
-        >>> # Use AllenNLP
+        >>> # Use AllenNLP (English)
         >>> srl = get_srl('allennlp')
-        >>> results = srl.process_batch(["Sentence 1", "Sentence 2"])
+        >>> results = srl.process(["Sentence 1", "Sentence 2"])
+        
+        >>> # Use HanLP (Chinese)
+        >>> srl = get_srl('hanlp')
+        >>> result = srl.process("政府提高了利率。")
     """
     if method == "spacy":
         return SpacySRL(**kwargs)
@@ -609,10 +837,18 @@ def get_srl(method: str = "spacy", **kwargs) -> Union[SpacySRL, AllenNLPSRL]:
                 "Note: AllenNLP requires Python 3.9-3.10."
             )
         return AllenNLPSRL(**kwargs)
+    elif method == "hanlp":
+        if not HANLP_AVAILABLE:
+            raise ImportError(
+                "HanLP is not available. "
+                "Install with: pip install hanlp\n"
+                "Note: HanLP is required for Chinese SRL."
+            )
+        return HanLPSRL(**kwargs)
     else:
         raise ValueError(
             f"Unknown SRL method: {method}. "
-            f"Supported methods: 'spacy', 'allennlp'"
+            f"Supported methods: 'spacy', 'allennlp', 'hanlp'"
         )
 
 
@@ -627,6 +863,15 @@ def is_allennlp_available() -> bool:
         True if AllenNLP can be imported
     """
     return ALLENNLP_AVAILABLE
+
+
+def is_hanlp_available() -> bool:
+    """Check if HanLP is available.
+    
+    Returns:
+        True if HanLP can be imported
+    """
+    return HANLP_AVAILABLE
 
 
 def extract_roles(srl_result: Dict[str, Any]) -> Dict[str, Optional[str]]:

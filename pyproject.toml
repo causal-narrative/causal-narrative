@@ -51,6 +51,10 @@ allennlp = [
     "torch>=1.7.0,<1.13.0",
 ]
 
+chinese = [
+    "hanlp>=2.1",
+]
+
 viz = [
     "pyvis>=0.3.0",
     "playwright>=1.40",
@@ -69,6 +73,7 @@ all = [
     "allennlp>=2.10",
     "allennlp-models>=2.10",
     "torch>=1.7.0,<1.13.0",
+    "hanlp>=2.1",
     "pyvis>=0.3.0",
     "playwright>=1.40",
     "nest-asyncio>=1.5",

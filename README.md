@@ -29,16 +29,27 @@ Output: {
 
 Extract semantic roles (Agent-Verb-Patient / ARG0-V-ARG1) from causal spans:
 
-- **spaCy-based SRL**: Fast, dependency parsing-based extraction
-- **AllenNLP-based SRL**: More accurate, transformer-based extraction
+- **Dependency parsing SRL** (English): Fast, dependency parsing-based extraction using spaCy
+- **AllenNLP SRL** (English): More accurate, transformer-based extraction
+- **HanLP SRL** (Chinese): Semantic role labeling for Chinese text
 
-**Example:**
+**Example (English):**
 ```
 Input: "The government raised interest rates."
 Output: {
   "ARG0": "The government",
   "V": "raised",
   "ARG1": "interest rates"
+}
+```
+
+**Example (Chinese):**
+```
+Input: "政府提高了利率。"
+Output: {
+  "ARG0": "政府",
+  "V": "提高",
+  "ARG1": "利率"
 }
 ```
 
@@ -78,6 +89,11 @@ Build and visualize causal networks from clustered events:
 - **Python 3.8+** for basic features
 - **Python 3.9-3.10** for AllenNLP SRL support
 
+### Language Support
+
+- **English**: Full support with spaCy, AllenNLP, and BERT models
+- **Chinese (中文)**: Supported with HanLP SRL and multilingual BERT embedding models
+
 ### Option 1: Full Installation (includes AllenNLP SRL)
 
 **Use Python 3.9 or 3.10 only**
@@ -91,9 +107,14 @@ conda activate causal-narrative
 python -m pip install -U pip wheel setuptools
 python -m pip install -U 'causal-narrative[allennlp]'
 
-# Download spaCy model
+# Download spaCy model (for English)
 python -m spacy download en_core_web_sm
 ```
+
+**Important Notes for AllenNLP:**
+- The correct model URL is: `https://storage.googleapis.com/allennlp-public-models/structured-prediction-srl-bert.2020.12.15.tar.gz`
+- Models are cached in `~/.allennlp/` after first download
+- If you encounter network issues, download the model manually and specify the local path
 
 ### Option 2: Without AllenNLP SRL (Dependency Parsing only)
 
@@ -108,9 +129,48 @@ conda activate causal-narrative
 python -m pip install -U pip wheel setuptools
 python -m pip install -U causal-narrative
 
-# Download spaCy model
+# Download spaCy model (for English)
 python -m spacy download en_core_web_sm
 ```
+
+**What you get:**
+- ✅ Causal relation detection
+- ✅ Dependency parsing-based SRL (faster, good for most cases)
+- ✅ Event clustering
+- ✅ Network construction and visualization
+- ❌ AllenNLP-based SRL (more accurate, but requires Python 3.9-3.10)
+
+### Option 3: Chinese Language Support
+
+**For Chinese text analysis, install HanLP:**
+
+```bash
+# Install HanLP for Chinese SRL
+pip install hanlp
+
+# Test Chinese support
+python -c "from causal_narrative import get_srl, is_hanlp_available; print('HanLP available:', is_hanlp_available())"
+```
+
+**Chinese Features:**
+- ✅ HanLP-based SRL for Chinese text
+- ✅ Multilingual BERT embedding models (automatic language detection)
+- ✅ Same clustering and visualization as English
+
+**Example Usage (Chinese):**
+```python
+from causal_narrative import get_srl, SentenceEmbedder
+
+# Initialize Chinese SRL
+srl = get_srl('hanlp')
+result = srl.process("政府提高了利率。")
+
+# Initialize Chinese embedding model
+from causal_narrative.embedding import DEFAULT_CHINESE_MODEL_NAME
+embedder = SentenceEmbedder(model_name=DEFAULT_CHINESE_MODEL_NAME)
+```
+
+**See Tutorial:** Check `notebook/tutorial_minimal_zh.ipynb` for a complete Chinese example.
 
 ### Important: DP-Means Clustering with Cosine Similarity
 
